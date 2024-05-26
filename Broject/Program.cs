@@ -5,26 +5,119 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Serialization;
 using Broject;
 
 Console.OutputEncoding = Encoding.Unicode;
 
-List<User> users = new List<User>(); // Список користувачів
-List<Poll> polls = new List<Poll>(); // Список опитувань
-
-users.Add(new User { Username = "admin", Password = "admin", IsAdmin = true }); // тестовий адмін
-
-TcpListener listener = new TcpListener(IPAddress.Any, 8888); // порт 8888
-listener.Start();
-Console.WriteLine("(i) Сервер запущено...");
-Console.WriteLine("(i) Чекаємо на підключення клієнтів...");
-
-while (true)
+try
 {
-    TcpClient client = listener.AcceptTcpClient();
-    Console.WriteLine($"(i) Клієнт [{client.Client.RemoteEndPoint}] приєднався!");
-    Task.Run(() => HandleClient(client, users, polls));
+    List<User> users = await UserReaderAsync(); // Список користувачів
+    List<Poll> polls = await PollReaderAsync(); // Список опитувань
+
+    users.Add(new User { Username = "admin", Password = "admin", IsAdmin = true }); // тестовий адмін
+
+    TcpListener listener = new TcpListener(IPAddress.Any, 8888); // порт 8888
+    listener.Start();
+    Console.WriteLine("(i) Сервер запущено...");
+    Console.WriteLine("(i) Чекаємо на підключення клієнтів...");
+
+    while (true)
+    {
+        TcpClient client = listener.AcceptTcpClient();
+        Console.WriteLine($"(i) Клієнт [{client.Client.RemoteEndPoint}] приєднався!");
+        Task.Run(() => HandleClient(client, users, polls));
+    }
 }
+catch (Exception e) { Console.WriteLine("(!) " + e.Message); }
+
+//---------------------------------------------------------------------------------------
+
+static async Task<List<User>> UserReaderAsync()
+{
+    List<User> usersAs = new List<User>();
+    string rootPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @"source\repos\TeamBr228\TeamBroject");
+    string searchPattern = @"Users\*.xml";
+
+    // Рекурсивний пошук файлів
+    List<string> foundFiles = new List<string>();
+    await SearchFilesRecursivelyAsync(rootPath, searchPattern, foundFiles);
+
+    // Зчитування користувачів з кожного знайденого файлу
+    foreach (string file in foundFiles)
+    {
+        List<User> usersFromFile = await ReadUsersFromFileAsync(file);
+        usersAs.AddRange(usersFromFile);
+    }
+
+    return usersAs;
+}
+
+static async Task SearchFilesRecursivelyAsync(string currentPath, string searchPattern, List<string> foundFiles)
+{
+    try
+    {
+        foreach (string file in Directory.GetFiles(currentPath, searchPattern))
+            foundFiles.Add(file);
+    }
+    catch (UnauthorizedAccessException) { /*Пропуск директорій, до яких немає доступу*/ }
+}
+
+static async Task<List<User>> ReadUsersFromFileAsync(string filePath)
+{
+    List<User> users = new List<User>();
+
+    try
+    {
+        using (FileStream fStream = new FileStream(filePath, FileMode.Open))
+        {
+            XmlSerializer serializer = new XmlSerializer(typeof(List<User>));
+            users = (List<User>)serializer.Deserialize(fStream);
+        }
+    }
+    catch (Exception e) { Console.WriteLine($"(i) " + e.Message); }
+
+    return users;
+}
+
+static async Task<List<Poll>> PollReaderAsync()
+{
+    List<Poll> pollsAs = new List<Poll>();
+    string rootPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @"source\repos\TeamBr228\TeamBroject");
+    string searchPattern = @"Polls\*.xml";
+
+    // Рекурсивний пошук файлів
+    List<string> foundFiles = new List<string>();
+    await SearchFilesRecursivelyAsync(rootPath, searchPattern, foundFiles);
+
+    // Зчитування користувачів з кожного знайденого файлу
+    foreach (string file in foundFiles)
+    {
+        List<Poll> usersFromFile = await ReadPollsFromFileAsync(file);
+        pollsAs.AddRange(usersFromFile);
+    }
+
+    return pollsAs;
+}
+
+static async Task<List<Poll>> ReadPollsFromFileAsync(string filePath)
+{
+    List<Poll> polls = new List<Poll>();
+
+    try
+    {
+        using (FileStream fileStream = new FileStream(filePath, FileMode.Open))
+        {
+            XmlSerializer serializer = new XmlSerializer(typeof(List<Poll>));
+            polls = (List<Poll>)serializer.Deserialize(fileStream);
+        }
+    }
+    catch (Exception e) { Console.WriteLine($"(i) " + e.Message); }
+
+    return polls;
+}
+
+//---------------------------------------------------------------------------------------
 
 static void HandleClient(TcpClient client, List<User> users, List<Poll> polls)
 {
