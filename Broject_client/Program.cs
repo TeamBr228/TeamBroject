@@ -27,29 +27,33 @@ namespace VotingClient
                     while (true)
                     {
                         Console.WriteLine("\nОберіть команду:");
-                        Console.WriteLine("1 - Увійти");
-                        Console.WriteLine("2 - Створити опитування");
-                        Console.WriteLine("3 - Редагувати опитування");
-                        Console.WriteLine("4 - Видалити опитування");
-                        Console.WriteLine("5 - Вийти");
+                        Console.WriteLine("1 - Зареєструватися");
+                        Console.WriteLine("2 - Увійти");
+                        Console.WriteLine("3 - Створити опитування");
+                        Console.WriteLine("4 - Редагувати опитування");
+                        Console.WriteLine("5 - Видалити опитування");
+                        Console.WriteLine("6 - Вийти");
 
                         string choice = Console.ReadLine();
 
                         switch (choice)
                         {
                             case "1":
-                                await Login(stream);
+                                await Register(stream);
                                 break;
                             case "2":
-                                await CreatePoll(stream);
+                                await Login(stream);
                                 break;
                             case "3":
-                                await EditPoll(stream);
+                                await CreatePoll(stream);
                                 break;
                             case "4":
-                                await DeletePoll(stream);
+                                await EditPoll(stream);
                                 break;
                             case "5":
+                                await DeletePoll(stream);
+                                break;
+                            case "6":
                                 Console.WriteLine("(i) Завершення роботи.");
                                 return;
                             default:
@@ -65,6 +69,21 @@ namespace VotingClient
             }
 
             Console.WriteLine("(i) Клієнт завершив роботу.");
+        }
+
+        static async Task Register(NetworkStream stream)
+        {
+            Console.Write("Введіть ім'я користувача: ");
+            string username = Console.ReadLine();
+            Console.Write("Введіть пароль: ");
+            string password = Console.ReadLine();
+            Console.Write("Чи є користувач адміністратором? (yes/no): ");
+            string isAdminInput = Console.ReadLine();
+            bool isAdmin = isAdminInput.ToLower() == "yes";
+            string registerCommand = $"REGISTER|{username}|{password}|{isAdmin}";
+            await SendCommand(stream, registerCommand);
+            string registerResponse = await ReceiveResponse(stream);
+            Console.WriteLine($"Сервер >> {registerResponse}");
         }
 
         static async Task Login(NetworkStream stream)
