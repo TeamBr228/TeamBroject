@@ -39,15 +39,22 @@ static async Task<List<User>> UserReaderAsync()
     string rootPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @"source\repos\TeamBr228\TeamBroject");
     string searchPattern = @"Users\*.xml";
 
-    // Рекурсивний пошук файлів
-    List<string> foundFiles = new List<string>();
-    await SearchFilesRecursivelyAsync(rootPath, searchPattern, foundFiles);
-
-    // Зчитування користувачів з кожного знайденого файлу
-    foreach (string file in foundFiles)
+    if (Directory.Exists(rootPath))
     {
-        List<User> usersFromFile = await ReadUsersFromFileAsync(file);
-        usersAs.AddRange(usersFromFile);
+        // Рекурсивний пошук файлів
+        List<string> foundFiles = new List<string>();
+        await SearchFilesRecursivelyAsync(rootPath, searchPattern, foundFiles);
+
+        // Зчитування користувачів з кожного знайденого файлу
+        foreach (string file in foundFiles)
+        {
+            List<User> usersFromFile = await ReadUsersFromFileAsync(file);
+            usersAs.AddRange(usersFromFile);
+        }
+    }
+    else
+    {
+        Console.WriteLine("(i) Директорія користувачів не існує.");
     }
 
     return usersAs;
@@ -57,7 +64,7 @@ static async Task SearchFilesRecursivelyAsync(string currentPath, string searchP
 {
     try
     {
-        foreach (string file in Directory.GetFiles(currentPath, searchPattern))
+        foreach (string file in Directory.GetFiles(currentPath, searchPattern, SearchOption.AllDirectories))
             foundFiles.Add(file);
     }
     catch (UnauthorizedAccessException) { /*Пропуск директорій, до яких немає доступу*/ }
@@ -86,15 +93,22 @@ static async Task<List<Poll>> PollReaderAsync()
     string rootPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @"source\repos\TeamBr228\TeamBroject");
     string searchPattern = @"Polls\*.xml";
 
-    // Рекурсивний пошук файлів
-    List<string> foundFiles = new List<string>();
-    await SearchFilesRecursivelyAsync(rootPath, searchPattern, foundFiles);
-
-    // Зчитування користувачів з кожного знайденого файлу
-    foreach (string file in foundFiles)
+    if (Directory.Exists(rootPath))
     {
-        List<Poll> usersFromFile = await ReadPollsFromFileAsync(file);
-        pollsAs.AddRange(usersFromFile);
+        // Рекурсивний пошук файлів
+        List<string> foundFiles = new List<string>();
+        await SearchFilesRecursivelyAsync(rootPath, searchPattern, foundFiles);
+
+        // Зчитування користувачів з кожного знайденого файлу
+        foreach (string file in foundFiles)
+        {
+            List<Poll> usersFromFile = await ReadPollsFromFileAsync(file);
+            pollsAs.AddRange(usersFromFile);
+        }
+    }
+    else
+    {
+        Console.WriteLine("(i) Директорія опитувань не існує.");
     }
 
     return pollsAs;
@@ -124,7 +138,6 @@ static void HandleClient(TcpClient client, List<User> users, List<Poll> polls)
     NetworkStream stream = client.GetStream();
     byte[] buffer = new byte[1024];
     int bytesRead;
-
     while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
     {
         string data = Encoding.Unicode.GetString(buffer, 0, bytesRead);
@@ -191,7 +204,6 @@ static void HandleClient(TcpClient client, List<User> users, List<Poll> polls)
                     List<string> options = questionData.Skip(1).ToList();
                     questions.Add(new Question { Text = questionText, Options = options });
                 }
-
                 // знаходимо опитування за заголовком та оновлюємо його
                 Poll existingPoll = polls.FirstOrDefault(p => p.Title == title);
                 if (existingPoll != null)
@@ -220,7 +232,6 @@ static void HandleClient(TcpClient client, List<User> users, List<Poll> polls)
             if (parts.Length >= 2)
             {
                 string title = parts[1];
-
                 // знаходимо опитування за заголовком та видаляємо його
                 Poll existingPoll = polls.FirstOrDefault(p => p.Title == title);
                 if (existingPoll != null)
