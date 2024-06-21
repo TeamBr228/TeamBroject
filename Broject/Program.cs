@@ -17,7 +17,7 @@ try
 
     users.Add(new User { Username = "admin", Password = "admin", IsAdmin = true }); // тестовий адмін
 
-    TcpListener listener = new TcpListener(IPAddress.Any, 8888); // порт 8888
+    TcpListener listener = new TcpListener(IPAddress.Parse("127.0.0.1"), 8888); // порт 8888
     listener.Start();
     Console.WriteLine("(i) Сервер запущено...");
     Console.WriteLine("(i) Чекаємо на підключення клієнтів...");
@@ -138,125 +138,129 @@ static void HandleClient(TcpClient client, List<User> users, List<Poll> polls)
     NetworkStream stream = client.GetStream();
     byte[] buffer = new byte[1024];
     int bytesRead;
-    while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
+    try
     {
-        string data = Encoding.Unicode.GetString(buffer, 0, bytesRead);
-        Console.WriteLine($"Кл. [{client.Client.RemoteEndPoint}] >> {data}");
-
-        string[] parts = data.Split('|');
-        string command = parts[0];
-
-        // автентифікація
-        if (command == "LOGIN")
+        while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
         {
-            string username = parts[1];
-            string password = parts[2];
-            bool isAdmin = AuthenticateUser(username, password, users);
-            byte[] response = Encoding.Unicode.GetBytes($"AUTH|{(isAdmin ? "ADMIN" : "USER")}");
-            stream.Write(response, 0, response.Length);
-        }
+            string data = Encoding.Unicode.GetString(buffer, 0, bytesRead);
+            Console.WriteLine($"Кл. [{client.Client.RemoteEndPoint}] >> {data}");
 
-        // створення опитування
-        else if (command == "CREATE_POLL")
-        {
-            if (parts.Length >= 4)
+            string[] parts = data.Split('|');
+            string command = parts[0];
+
+            // автентифікація
+            if (command == "LOGIN")
             {
-                string title = parts[1];
-                string difficulty = parts[2];
-                List<Question> questions = new List<Question>();
-
-                // отримуємо дані про питання та варіанти відповідей
-                for (int i = 3; i < parts.Length; i++)
-                {
-                    string[] questionData = parts[i].Split(';');
-                    string questionText = questionData[0];
-                    List<string> options = questionData.Skip(1).ToList();
-                    questions.Add(new Question { Text = questionText, Options = options });
-                }
-
-                // створюємо нове опитування
-                Poll newPoll = new Poll { Title = title, Difficulty = difficulty, Questions = questions };
-                polls.Add(newPoll);
-                byte[] response = Encoding.Unicode.GetBytes("POLL_CREATED");
+                string username = parts[1];
+                string password = parts[2];
+                bool isAdmin = AuthenticateUser(username, password, users);
+                byte[] response = Encoding.Unicode.GetBytes($"AUTH|{(isAdmin ? "ADMIN" : "USER")}");
                 stream.Write(response, 0, response.Length);
             }
-            else
-            {
-                byte[] response = Encoding.Unicode.GetBytes("ERROR|INVALID_FORMAT");
-                stream.Write(response, 0, response.Length);
-            }
-        }
 
-        // редагування опитування
-        else if (command == "EDIT_POLL")
-        {
-            if (parts.Length >= 4)
+            // створення опитування
+            else if (command == "CREATE_POLL")
             {
-                string title = parts[1];
-                string difficulty = parts[2];
-                List<Question> questions = new List<Question>();
+                if (parts.Length >= 4)
+                {
+                    string title = parts[1];
+                    string difficulty = parts[2];
+                    List<Question> questions = new List<Question>();
 
-                // дані про питання та варіанти відповідей
-                for (int i = 3; i < parts.Length; i++)
-                {
-                    string[] questionData = parts[i].Split(';');
-                    string questionText = questionData[0];
-                    List<string> options = questionData.Skip(1).ToList();
-                    questions.Add(new Question { Text = questionText, Options = options });
-                }
-                // знаходимо опитування за заголовком та оновлюємо його
-                Poll existingPoll = polls.FirstOrDefault(p => p.Title == title);
-                if (existingPoll != null)
-                {
-                    existingPoll.Difficulty = difficulty;
-                    existingPoll.Questions = questions;
-                    byte[] response = Encoding.Unicode.GetBytes("POLL_UPDATED");
+                    // отримуємо дані про питання та варіанти відповідей
+                    for (int i = 3; i < parts.Length; i++)
+                    {
+                        string[] questionData = parts[i].Split(';');
+                        string questionText = questionData[0];
+                        List<string> options = questionData.Skip(1).ToList();
+                        questions.Add(new Question { Text = questionText, Options = options });
+                    }
+
+                    // створюємо нове опитування
+                    Poll newPoll = new Poll { Title = title, Difficulty = difficulty, Questions = questions };
+                    polls.Add(newPoll);
+                    byte[] response = Encoding.Unicode.GetBytes("POLL_CREATED");
                     stream.Write(response, 0, response.Length);
                 }
                 else
                 {
-                    byte[] response = Encoding.Unicode.GetBytes("ERROR|POLL_NOT_FOUND");
+                    byte[] response = Encoding.Unicode.GetBytes("ERROR|INVALID_FORMAT");
                     stream.Write(response, 0, response.Length);
                 }
             }
-            else
-            {
-                byte[] response = Encoding.Unicode.GetBytes("ERROR|INVALID_FORMAT");
-                stream.Write(response, 0, response.Length);
-            }
-        }
 
-        // видалення опитування
-        else if (command == "DELETE_POLL")
-        {
-            if (parts.Length >= 2)
+            // редагування опитування
+            else if (command == "EDIT_POLL")
             {
-                string title = parts[1];
-                // знаходимо опитування за заголовком та видаляємо його
-                Poll existingPoll = polls.FirstOrDefault(p => p.Title == title);
-                if (existingPoll != null)
+                if (parts.Length >= 4)
                 {
-                    polls.Remove(existingPoll);
-                    byte[] response = Encoding.Unicode.GetBytes("POLL_DELETED");
-                    stream.Write(response, 0, response.Length);
+                    string title = parts[1];
+                    string difficulty = parts[2];
+                    List<Question> questions = new List<Question>();
+
+                    // дані про питання та варіанти відповідей
+                    for (int i = 3; i < parts.Length; i++)
+                    {
+                        string[] questionData = parts[i].Split(';');
+                        string questionText = questionData[0];
+                        List<string> options = questionData.Skip(1).ToList();
+                        questions.Add(new Question { Text = questionText, Options = options });
+                    }
+                    // знаходимо опитування за заголовком та оновлюємо його
+                    Poll existingPoll = polls.FirstOrDefault(p => p.Title == title);
+                    if (existingPoll != null)
+                    {
+                        existingPoll.Difficulty = difficulty;
+                        existingPoll.Questions = questions;
+                        byte[] response = Encoding.Unicode.GetBytes("POLL_UPDATED");
+                        stream.Write(response, 0, response.Length);
+                    }
+                    else
+                    {
+                        byte[] response = Encoding.Unicode.GetBytes("ERROR|POLL_NOT_FOUND");
+                        stream.Write(response, 0, response.Length);
+                    }
                 }
                 else
                 {
-                    byte[] response = Encoding.Unicode.GetBytes("ERROR|POLL_NOT_FOUND");
+                    byte[] response = Encoding.Unicode.GetBytes("ERROR|INVALID_FORMAT");
                     stream.Write(response, 0, response.Length);
                 }
             }
-            else
-            {
-                byte[] response = Encoding.Unicode.GetBytes("ERROR|INVALID_FORMAT");
-                stream.Write(response, 0, response.Length);
-            }
-        }
 
-        Console.WriteLine($"Сервер >> {data}");
+            // видалення опитування
+            else if (command == "DELETE_POLL")
+            {
+                if (parts.Length >= 2)
+                {
+                    string title = parts[1];
+                    // знаходимо опитування за заголовком та видаляємо його
+                    Poll existingPoll = polls.FirstOrDefault(p => p.Title == title);
+                    if (existingPoll != null)
+                    {
+                        polls.Remove(existingPoll);
+                        byte[] response = Encoding.Unicode.GetBytes("POLL_DELETED");
+                        stream.Write(response, 0, response.Length);
+                    }
+                    else
+                    {
+                        byte[] response = Encoding.Unicode.GetBytes("ERROR|POLL_NOT_FOUND");
+                        stream.Write(response, 0, response.Length);
+                    }
+                }
+                else
+                {
+                    byte[] response = Encoding.Unicode.GetBytes("ERROR|INVALID_FORMAT");
+                    stream.Write(response, 0, response.Length);
+                }
+            }
+
+            Console.WriteLine($"Сервер >> {data}");
+        }
     }
+    catch { goto ExitCode; }
 
-    client.Close();
+ExitCode: client.Close();
     Console.WriteLine("(!) Клієнта було від'єднано!");
 }
 
